@@ -17,8 +17,8 @@
     background: #050a1e;
   }
   .stage.fullscreen { position: fixed; inset: 0; width: auto; height: auto; aspect-ratio: auto; }
-  .stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
-  .stage canvas:active { cursor: grabbing; }
+  #scene { display: block; width: 100%; height: 100%; cursor: grab; }
+  #scene:active { cursor: grabbing; }
   .stage::after { /* vignette */
     content: ""; position: absolute; inset: 0; pointer-events: none;
     background: radial-gradient(ellipse at 50% 45%, transparent 62%, rgba(0,0,0,.55) 100%);
@@ -30,8 +30,8 @@
     pointer-events: none; transition: opacity 1.5s ease;
   }
   .logo {
-    position: absolute; left: 50%; top: 43%; z-index: 4;
-    width: 56%; height: auto;
+    position: absolute; left: 50%; top: 40%; z-index: 4;
+    width: 48%; height: auto;
     transform: translate(-50%, -50%) scale(var(--logoS, 1));
     transform-origin: 50% 50%;
     pointer-events: none;
@@ -78,7 +78,7 @@
 <body>
 <div class="stage" id="stage">
   <div class="fallback" id="fallback">WebGL or the Three.js CDN could not load.<br>Check your connection and reopen.</div>
-  <canvas class="logo hidden" id="logo" width="1500" height="900"></canvas>
+  <canvas class="logo hidden" id="logo" width="1000" height="600"></canvas>
   <div class="hint" id="hint" style="opacity:0">drag to look around &nbsp;·&nbsp; double-click for fullscreen &nbsp;·&nbsp; ☠</div>
   <div class="controls hidden" id="controls">
     <button class="music-btn" id="muteBtn" title="Mute or unmute the music">♪ music on</button>
@@ -343,6 +343,7 @@ async function boot() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.domElement.id = 'scene';
   stage.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -721,59 +722,59 @@ async function boot() {
   /* ---------- title logo: DOM overlay, never occluded ---------- */
   const logoEl = document.getElementById('logo');
   function drawLogoDOM() {
-    const W = 1500, H = 900;
+    const W = 1000, H = 600;
     const g = logoEl.getContext('2d');
     g.clearRect(0, 0, W, H);
     const F = (px) => `${px}px "Pirata One", Georgia, serif`;
     g.textAlign = 'center';
+    g.lineJoin = 'round';
     // THE SECRET OF
-    g.font = F(58);
+    g.font = F(56);
     try { g.letterSpacing = '6px'; } catch (e) {}
     g.fillStyle = '#e07a2a';
     g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 8;
-    g.fillText('THE SECRET OF', W / 2 + 40, 150);
+    g.fillText('THE SECRET OF', 505, 122);
     g.shadowBlur = 0;
     try { g.letterSpacing = '0px'; } catch (e) {}
-    // MONKEY + ISLAND, auto-scaled to fit
-    const grad = g.createLinearGradient(0, 200, 0, 660);
+    // banner ribbon — drawn first so ISLAND's lower edge overlaps it, like the original
+    const bx1 = 140, bx2 = 860, rby = 452, bh = 112;
+    g.beginPath();
+    g.moveTo(bx1, rby + 8);
+    g.quadraticCurveTo(W / 2, rby - 16, bx2, rby + 8);
+    g.lineTo(bx2 - 30, rby + bh / 2);
+    g.lineTo(bx2, rby + bh);
+    g.quadraticCurveTo(W / 2, rby + bh + 14, bx1, rby + bh);
+    g.lineTo(bx1 + 30, rby + bh / 2);
+    g.closePath();
+    const bg = g.createLinearGradient(0, rby, 0, rby + bh);
+    bg.addColorStop(0, '#f7ecc0'); bg.addColorStop(1, '#e0c783');
+    g.fillStyle = bg; g.fill();
+    g.strokeStyle = '#8a6a2f'; g.lineWidth = 3; g.stroke();
+    g.font = F(50);
+    try { g.letterSpacing = '3px'; } catch (e) {}
+    g.fillStyle = '#3a2205';
+    g.fillText('SPECIAL EDITION', 500, rby + 76);
+    try { g.letterSpacing = '0px'; } catch (e) {}
+    // MONKEY + ISLAND on top, auto-scaled to fit
+    const grad = g.createLinearGradient(0, 140, 0, 490);
     grad.addColorStop(0, '#ff9d2e');
     grad.addColorStop(1, '#ffe45c');
-    g.lineJoin = 'round';
-    let islandRight = W / 2 + 300, islandBase = 650;
-    for (const [word, cx, by, fs] of [['MONKEY', W / 2 + 70, 430, 252], ['ISLAND', W / 2 - 55, 650, 252]]) {
-      let size = fs;
+    let islandRight = 800, islandBase = 478;
+    for (const [word, cx, by, maxw] of [['MONKEY', 515, 316, 740], ['ISLAND', 485, 478, 700]]) {
+      let size = 250;
       g.font = F(size);
-      while (g.measureText(word).width > 780) { size -= 6; g.font = F(size); }
-      g.shadowColor = 'rgba(255,150,50,.5)'; g.shadowBlur = 34;
-      g.strokeStyle = '#5f2a08'; g.lineWidth = 16;
+      while (g.measureText(word).width > maxw) { size -= 6; g.font = F(size); }
+      g.shadowColor = 'rgba(255,150,50,.5)'; g.shadowBlur = 30;
+      g.strokeStyle = '#5f2a08'; g.lineWidth = 14;
       g.strokeText(word, cx, by);
       g.fillStyle = grad;
       g.fillText(word, cx, by);
       g.shadowBlur = 0;
       if (word === 'ISLAND') { islandRight = cx + g.measureText(word).width / 2; islandBase = by; }
     }
-    g.font = F(30);
+    g.font = F(26);
     g.fillStyle = '#e8b84a';
-    g.fillText('™', islandRight + 16, islandBase - 8);
-    // banner ribbon
-    const bx1 = 390, bx2 = 1110, by = 705, bh = 92;
-    g.beginPath();
-    g.moveTo(bx1, by + 8);
-    g.quadraticCurveTo(W / 2, by - 18, bx2, by + 8);
-    g.lineTo(bx2 - 34, by + bh / 2);
-    g.lineTo(bx2, by + bh + 6);
-    g.quadraticCurveTo(W / 2, by + bh + 32, bx1, by + bh + 6);
-    g.lineTo(bx1 + 34, by + bh / 2);
-    g.closePath();
-    const bg = g.createLinearGradient(0, by, 0, by + bh);
-    bg.addColorStop(0, '#f7ecc0'); bg.addColorStop(1, '#e0c783');
-    g.fillStyle = bg; g.fill();
-    g.strokeStyle = '#8a6a2f'; g.lineWidth = 3; g.stroke();
-    g.font = F(56);
-    try { g.letterSpacing = '3px'; } catch (e) {}
-    g.fillStyle = '#3a2205';
-    g.fillText('SPECIAL EDITION', W / 2, by + 64);
-    try { g.letterSpacing = '0px'; } catch (e) {}
+    g.fillText('™', islandRight + 12, islandBase - 6);
   }
   drawLogoDOM();
 
