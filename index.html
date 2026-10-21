@@ -104,13 +104,15 @@ const THEME = {"div":192,"tempos":[[0,500000]],"end":66080,"tracks":[{"n":"THE S
    ===================================================================== */
 const GM_DRUMS = {
   35: 'kick', 36: 'kick', 41: 'kick', 38: 'snare', 40: 'snare', 37: 'rim', 39: 'clap',
-  42: 'hat', 44: 'hat', 46: 'hatopen', 49: 'crash', 50: 'crash', 51: 'crash', 57: 'ride', 72: 'ride', 73: 'ride', 74: 'ride',
-  56: 'cowbell', 58: 'shaker', 59: 'shaker', 66: 'shaker', 67: 'shaker', 68: 'shaker', 69: 'shaker', 70: 'shaker', 71: 'shaker',
+  42: 'hat', 44: 'hat', 46: 'hatopen', 49: 'crash', 50: 'crash', 51: 'crash', 57: 'ride', 72: 'cowbell',
+  73: 'guiro', 74: 'guiro', 56: 'cowbell', 58: 'shaker', 59: 'shaker',
+  66: 'shaker', 67: 'shaker', 68: 'shaker', 69: 'shaker', 70: 'shaker', 71: 'shaker',
   60: 'conga', 61: 'conga', 62: 'conga', 63: 'conga', 64: 'conga', 65: 'conga',
-  45: 'tom', 47: 'tom', 48: 'tom', 52: 'tom', 53: 'tom', 54: 'tom', 55: 'tom', 75: 'tom', 76: 'tom', 77: 'tom'
+  75: 'woodblock', 76: 'woodblock',
+  45: 'tom', 47: 'tom', 48: 'tom', 52: 'tom', 53: 'tom', 54: 'tom', 55: 'tom', 77: 'tom'
 };
-const CH_INSTR = { 1: 'guitar', 2: 'pan', 3: 'guitar2', 4: 'marimba', 5: 'bass', 6: 'bells', 7: 'flute', 9: 'drums' };
-const CH_GAIN  = { 1: 0.32, 2: 0.85, 3: 0.20, 4: 0.5, 5: 0.62, 6: 0.45, 7: 0.5, 9: 0.42 };
+const CH_INSTR = { 1: 'pan2', 2: 'pan', 3: 'comp', 4: 'marimba', 5: 'bass', 6: 'bells', 7: 'flute', 9: 'drums' };
+const CH_GAIN  = { 1: 0.30, 2: 0.85, 3: 0.15, 4: 0.46, 5: 0.62, 6: 0.45, 7: 0.5, 9: 0.42 };
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 class Calypso {
@@ -165,8 +167,8 @@ class Calypso {
       const g = c.createGain(); g.gain.value = CH_GAIN[ch]; g.connect(master);
       if (ch === '2') { // steel-pan lead gets a tasteful slap echo
         const d = c.createDelay(1); d.delayTime.value = 0.25;
-        const fb = c.createGain(); fb.gain.value = 0.28;
-        const wet = c.createGain(); wet.gain.value = 0.3;
+        const fb = c.createGain(); fb.gain.value = 0.25;
+        const wet = c.createGain(); wet.gain.value = 0.22;
         g.connect(d); d.connect(fb); fb.connect(d); d.connect(wet); wet.connect(master);
       }
       this.chGain[ch] = g;
@@ -216,11 +218,15 @@ class Calypso {
     } else if (kind === 'marimba') { // warm wooden doubles
       out = this.env(at, v, 0.006, Math.min(0.7, dur + 0.3));
       for (const [r, a] of [[1, 0.7], [4, 0.18]]) { const o = this.osc('sine', f * r, at, 0.9); const g = c.createGain(); g.gain.value = a; o.connect(g); g.connect(out); }
-    } else if (kind === 'guitar' || kind === 'guitar2') { // plucked comping
-      out = this.env(at, v * 0.8, 0.005, Math.min(0.55, dur + 0.25));
-      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = kind === 'guitar' ? 1600 : 1100;
-      for (const d of [-3, 3]) { const o = this.osc('sawtooth', f, at, 0.7); o.detune.value = d; o.connect(lp); }
-      lp.connect(out);
+    } else if (kind === 'pan2') {  // softer, distant pan for the counter-line
+      out = this.env(at, v * 0.8, 0.010, Math.min(0.8, dur + 0.35));
+      for (const [r, a] of [[1, 0.7], [2.0, 0.22], [3.0, 0.06]]) { const o = this.osc('sine', f * r, at, 1.0); const g = c.createGain(); g.gain.value = a; o.connect(g); g.connect(out); }
+    } else if (kind === 'comp') {  // dry, soft staccato chord stabs
+      out = this.env(at, v * 0.9, 0.004, Math.min(0.30, dur + 0.18));
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 950;
+      const o1 = this.osc('triangle', f, at, 0.4);
+      const o2 = this.osc('sine', f * 2, at, 0.4); const g2 = c.createGain(); g2.gain.value = 0.3;
+      o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(out);
     } else if (kind === 'bass') {    // round warm bass
       out = this.env(at, v * 1.1, 0.012, Math.min(0.9, dur + 0.35));
       const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 320;
@@ -302,6 +308,16 @@ class Calypso {
       const o = this.osc('sine', f * 1.35, at, 0.3);
       o.frequency.exponentialRampToValueAtTime(f * 0.85, at + 0.12);
       o.connect(g); g.connect(out);
+    } else if (kind === 'woodblock') { // bright high clicks (agogo-like tick)
+      const g = this.env(at, v * 0.45, 0.001, 0.08);
+      const n = this.noiseSrc(at, 0.06); const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 4;
+      n.connect(bp); bp.connect(g);
+      const o = this.osc('sine', 1180, at, 0.07); const og = c.createGain(); og.gain.value = v * 0.4; o.connect(og); og.connect(g);
+      g.connect(out);
+    } else if (kind === 'guiro') {    // short scrape
+      const g = this.env(at, v * 0.3, 0.01, 0.15);
+      const n = this.noiseSrc(at, 0.16); const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 2;
+      n.connect(bp); bp.connect(g); g.connect(out);
     } else { // tom
       const f = 110 + (p - 45) * 13;
       const g = this.env(at, v * 0.7, 0.002, 0.3);
